@@ -34,7 +34,7 @@ object Dependencies {
   val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val scalatest = "org.scalatest" %% "scalatest" % "3.0.1"
 
-  val parserCombinator211 = "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
+  val parserCombinator = "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
 
   val sjsonnewVersion = "0.5.1"
   val sjsonnew = "com.eed3si9n" %% "sjson-new-core" % sjsonnewVersion

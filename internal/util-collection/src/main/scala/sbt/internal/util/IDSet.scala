@@ -36,7 +36,10 @@ object IDSet {
     def +=(t: T) = { backing.put(t, Dummy); () }
     def ++=(t: Iterable[T]) = t foreach +=
     def -=(t: T) = if (backing.remove(t) eq null) false else true
-    def all = collection.JavaConversions.collectionAsScalaIterable(backing.keySet)
+    def all = {
+      import collection.JavaConverters._
+      backing.keySet.asScala
+    }
     def toList = all.toList
     def isEmpty = backing.isEmpty
     def process[S](t: T)(ifSeen: S)(ifNew: => S) = if (contains(t)) ifSeen else { this += t; ifNew }

@@ -31,8 +31,8 @@ object Dependencies {
   val scalaCompiler = Def.setting { "org.scala-lang" % "scala-compiler" % scalaVersion.value }
   val scalaReflect = Def.setting { "org.scala-lang" % "scala-reflect" % scalaVersion.value }
 
-  val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.13.1"
-  val scalatest = "org.scalatest" %% "scalatest" % "2.2.6"
+  val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
+  val scalatest = "org.scalatest" %% "scalatest" % "3.0.1"
 
   val parserCombinator211 = "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
 

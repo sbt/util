@@ -4,3 +4,6 @@ scala: 2.11.8
 
 script:
   - sbt -Dfile.encoding=UTF8 -J-XX:ReservedCodeCacheSize=256M "so test"
+
+jdk:
+  - oraclejdk8

@@ -17,9 +17,9 @@ abstract class AbstractLogger extends Logger {
   /** Defined in terms of other methods in Logger and should not be called from them. */
   final def log(event: LogEvent): Unit = {
     event match {
-      case s: Success       => success(s.msg)
-      case l: Log           => log(l.level, l.msg)
-      case t: Trace         => trace(t.exception)
+      case s: Success       => if (successEnabled) success(s.msg)
+      case l: Log           => if (atLevel(l.level)) log(l.level, l.msg)
+      case t: Trace         => if (traceEnabled) trace(t.exception)
       case setL: SetLevel   => setLevel(setL.newLevel)
       case setT: SetTrace   => setTrace(setT.level)
       case setS: SetSuccess => setSuccessEnabled(setS.enabled)

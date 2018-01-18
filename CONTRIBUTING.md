@@ -11,4 +11,3 @@ git reset --hard
 git gc --aggressive
 git prune
 ```
-

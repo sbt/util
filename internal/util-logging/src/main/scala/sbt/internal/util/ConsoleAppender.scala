@@ -389,7 +389,7 @@ class ConsoleAppender private[ConsoleAppender] (
       message: String
   ): Unit =
     out.lockObject.synchronized {
-      message.lines.foreach { line =>
+      message.linesIterator.foreach { line =>
         val builder = new java.lang.StringBuilder(
           labelColor.length + label.length + messageColor.length + line.length + reset.length * 3 + 3)
         def fmted(a: String, b: String) = builder.append(reset).append(a).append(b).append(reset)

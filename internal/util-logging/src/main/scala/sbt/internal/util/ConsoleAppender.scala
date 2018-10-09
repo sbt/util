@@ -10,6 +10,7 @@ import org.apache.logging.log4j.core.{ LogEvent => XLogEvent }
 import org.apache.logging.log4j.core.appender.AbstractAppender
 
 import ConsoleAppender._
+import StringContext._
 
 object ConsoleLogger {
   // These are provided so other modules do not break immediately.
@@ -80,7 +81,7 @@ class ConsoleLogger private[ConsoleLogger] (
 
   override def log(level: Level.Value, message: => String): Unit =
     if (atLevel(level)) {
-      appender.appendLog(level, message)
+      appender.appendLog(level, treatEscapes(message))
     }
 
   override def success(message: => String): Unit =

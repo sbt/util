@@ -263,9 +263,11 @@ object Difference {
     (store, style) => new Difference(store, style, defineClean, filesAreOutputs)
 
   /**
-   * Provides a constructor for a Difference that removes the files from the previous run on a call to 'clean' and saves the
-   * hash/last modified time of the files as they are after running the function.  This means that this information must be evaluated twice:
-   * before and after running the function.
+   * Provides a constructor for a Difference that removes the files from the previous run on a call
+   * to 'clean' and saves the hash/last modified time of the files as they are after running the
+   * function. This means that this information must be evaluated twice: before and after running
+   * the function, unless the more advanced toCache PartialFunction (applied after execution, telling
+   * if the cache should be updated and which files get cached) is used.
    */
   val outputs = constructor(true, true)
 
@@ -293,21 +295,36 @@ class Difference(
   private def cachedFilesInfo = store.read(default = FilesInfo.empty[style.F])(style.formats).files
   private def raw(fs: Set[style.F]): Set[File] = fs.map(_.file)
 
-  def apply[T](files: Set[File])(f: ChangeReport[File] => T): T = {
+  def apply[T](files: Set[File])(
+      f: ChangeReport[File] => T
+  ): T = {
     val lastFilesInfo = cachedFilesInfo
-    apply(files, lastFilesInfo)(f)(_ => files)
+    apply(files, lastFilesInfo)(f)({ case _ => files })
   }
 
-  def apply[T](f: ChangeReport[File] => T)(implicit toFiles: T => Set[File]): T = {
+  def apply[T](files: Set[File], toCache: PartialFunction[T, Set[File]])(
+      f: ChangeReport[File] => T
+  ): T = {
+    if (!filesAreOutputs)
+      throw new IllegalArgumentException(
+        "do not use this overload with filesAreOutputs=false: toCache will not be called"
+      )
     val lastFilesInfo = cachedFilesInfo
-    apply(raw(lastFilesInfo), lastFilesInfo)(f)(toFiles)
+    apply(files, lastFilesInfo)(f)(toCache)
+  }
+
+  def apply[T](
+      f: ChangeReport[File] => T
+  )(implicit @deprecatedName('toFiles) toCache: T => Set[File]): T = {
+    val lastFilesInfo = cachedFilesInfo
+    apply(raw(lastFilesInfo), lastFilesInfo)(f) { case x => toCache(x) }
   }
 
   private def abs(files: Set[File]) = files.map(_.getAbsoluteFile)
 
   private[this] def apply[T](files: Set[File], lastFilesInfo: Set[style.F])(
       f: ChangeReport[File] => T
-  )(extractFiles: T => Set[File]): T = {
+  )(implicit toCache: PartialFunction[T, Set[File]]): T = {
     val lastFiles = raw(lastFilesInfo)
     val currentFiles = abs(files)
     val currentFilesInfo = style(currentFiles)
@@ -321,9 +338,12 @@ class Difference(
     }
 
     val result = f(report)
-    val info = if (filesAreOutputs) style(abs(extractFiles(result))) else currentFilesInfo
 
-    store.write(info)(style.formats)
+    val maybeInfo = if (filesAreOutputs) {
+      toCache.lift(result).map(f => style(abs(f)))
+    } else Some(currentFilesInfo)
+
+    maybeInfo.foreach(info => store.write(info)(style.formats))
 
     result
   }

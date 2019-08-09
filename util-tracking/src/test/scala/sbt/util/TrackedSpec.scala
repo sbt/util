@@ -6,6 +6,7 @@ import sbt.io.syntax._
 import sbt.util.CacheImplicits._
 
 import scala.concurrent.Promise
+import scala.util.Try
 
 class TrackedSpec extends FlatSpec {
   "lastOutput" should "store the last output" in {
@@ -44,8 +45,6 @@ class TrackedSpec extends FlatSpec {
             read
         }(implicitly)(otherValue)
       assert(res2 === value)
-
-      ()
     }
   }
 
@@ -72,8 +71,6 @@ class TrackedSpec extends FlatSpec {
             in
         }(implicitly, implicitly)(input0)
       assert(res1 === input0)
-
-      ()
     }
   }
 
@@ -101,8 +98,6 @@ class TrackedSpec extends FlatSpec {
             fail()
         }(implicitly, implicitly)(input1)
       assert(res1 === input1)
-
-      ()
     }
   }
 
@@ -141,8 +136,6 @@ class TrackedSpec extends FlatSpec {
             secondExpectedResult
         }(implicitly)(p0)
       assert(res1 === secondExpectedResult)
-
-      ()
     }
   }
 
@@ -151,8 +144,6 @@ class TrackedSpec extends FlatSpec {
       Tracked.tstamp(store) { last =>
         assert(last === 0)
       }
-
-      ()
     }
   }
 
@@ -166,12 +157,82 @@ class TrackedSpec extends FlatSpec {
         val difference = System.currentTimeMillis - last
         assert(difference < 1000)
       }
-
-      ()
     }
   }
 
-  private def withStore(f: CacheStore => Unit): Unit =
+  "Difference.outputs" should "commit the cache will a snapshot of all input files after the execution" in {
+    withStore { store =>
+      val outCache = Difference.outputs(store, FileInfo.lastModified)
+      IO.withTemporaryDirectory { tmp =>
+        val files = Seq(tmp / "file0", tmp / "file1", tmp / "file2").map(_.getAbsoluteFile)
+
+        outCache(files.toSet)(_ => IO.touch(files(1)))
+        Thread.sleep(10)
+
+        IO.touch(files(2))
+        Thread.sleep(10)
+
+        val newInput = (tmp / "newInput").getAbsoluteFile
+        outCache(files.toSet + newInput) { report =>
+          assert(report.checked == files.toSet + newInput)
+          assert(report.unmodified == files.toSet - files(2))
+          assert(report.modified == Set(newInput, files(2)))
+          assert(report.added == Set(newInput))
+          assert(report.removed == Set())
+        }
+      }
+    }
+  }
+
+  "Difference.outputs" should "allow to selectively update the cache after the execution" in {
+    withStore { store =>
+      val outCache = Difference.outputs(store, FileInfo.lastModified)
+      IO.withTemporaryDirectory { tmp =>
+        val files = Seq(tmp / "file0", tmp / "file1", tmp / "file2").map(_.getAbsoluteFile)
+
+        val toCache: PartialFunction[Seq[File], Set[File]] = {
+          case output => (output.toSet - files(2)) // cache only files(1)
+        }
+        outCache[Seq[File]](files.toSet, toCache) { _ =>
+          IO.touch(files(1))
+          Thread.sleep(10)
+          Seq(files(1), files(2))
+        }
+
+        val newInput = (tmp / "newInput").getAbsoluteFile
+        outCache(
+          files.toSet + newInput,
+          PartialFunction.empty[Any, Set[File]] // do NOT update cache
+        ) { report =>
+          assert(report.added.contains(files(2)))
+          assert(report.unmodified == Set(files(1))) // the cache was updated AFTER the previous execution
+          IO.touch(files(1))
+          Thread.sleep(10)
+        }
+
+        outCache(files.toSet + newInput) { report =>
+          assert(report.added.contains(newInput)) // previous execution did NOT cache it
+          assert(report.modified.contains(files(1))) // last update was not captured
+        }
+      }
+    }
+  }
+
+  "Difference.inputs" should "succeed without a custom cache-update-controlling PartialFunction" in {
+    withStore { store =>
+      val outCache = Difference.inputs(store, FileInfo.lastModified)
+      outCache(Set.empty[File])(_ => true)
+    }
+  }
+
+  "Difference.inputs" should "fail verbosely with a custom cache-update-controlling PartialFunction" in {
+    withStore { store =>
+      val outCache = Difference.inputs(store, FileInfo.lastModified)
+      assert(Try(outCache(Set.empty[File], PartialFunction.empty)(_ => true)).isFailure)
+    }
+  }
+
+  private def withStore[T](f: CacheStore => T): T =
     IO.withTemporaryDirectory { tmp =>
       val store = CacheStore(tmp / "cache-store")
       f(store)

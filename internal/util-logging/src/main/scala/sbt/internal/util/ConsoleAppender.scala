@@ -290,7 +290,7 @@ object ConsoleAppender {
 
   private[this] def ansiSupported =
     try {
-      val terminal = jline.TerminalFactory.get
+      val terminal = sbt.internal.shaded.jline.TerminalFactory.get
       terminal.restore // #460
       terminal.isAnsiSupported
     } catch {

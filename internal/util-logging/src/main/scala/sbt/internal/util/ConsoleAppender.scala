@@ -333,10 +333,14 @@ private object SuperShellLogger {
       out.println(s"$DeleteLine$l")
       if (progress.length > 0) {
         val stripped = ascii.matcher(l).replaceAll("")
-        val isDebugLine =
-          l.startsWith("[debug]") || l.startsWith(s"${scala.Console.RESET}[debug]")
-        // As long as the line isn't a debug line, we can assume it was printed to
-        // the console and reduce the top padding.
+        // This is a hack to exclude debug lines from decreasing the padding count.
+        // The side effect is that when debug is on, they will unfortunately not reduce
+        // the padding even though they are printed to stdout. If a log line contains
+        // the string "debug", it also won't decrease the padding. It gets complicated
+        // comparing strings formatted with ansi codes, so we have to tolerate the hack
+        // for now. Without it, the supershell region can be incorrectly shrunken which
+        // causes stale tasks to persist at the bottom.
+        val isDebugLine = l.contains("debug")
         val pad = if (padding.get > 0 && !isDebugLine) padding.decrementAndGet else padding.get
         deleteConsoleLines(out, blankZone + pad)
         progress.foreach(out.println)

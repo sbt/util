@@ -465,18 +465,6 @@ class ConsoleAppender private[ConsoleAppender] (
   }
 
   /**
-   * Formats `msg` with `format, wrapped between `RESET`s
-   *
-   * @param format The format to use
-   * @param msg    The message to format
-   * @return The formatted message.
-   */
-  private def formatted(format: String, msg: String): String = {
-    val builder = new java.lang.StringBuilder(reset.length * 2 + format.length + msg.length)
-    builder.append(reset).append(format).append(msg).append(reset).toString
-  }
-
-  /**
    * Select the right color for the label given `level`.
    *
    * @param level The label to consider to select the color.

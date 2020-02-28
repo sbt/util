@@ -25,12 +25,12 @@ class ManagedLogger(
     )
   }
 
-  private lazy val SuccessEventTag = scala.reflect.runtime.universe.typeTag[SuccessEvent]
   // send special event for success since it's not a real log level
   override def success(message: => String): Unit = {
-    infoEvent[SuccessEvent](SuccessEvent(message))(
+    logEventImpl[SuccessEvent](Level.Info, SuccessEvent(message))(
+      LogExchange.stringTypeTagSuccessEvent,
+    )(
       implicitly[JsonFormat[SuccessEvent]],
-      SuccessEventTag
     )
   }
 
@@ -42,9 +42,14 @@ class ManagedLogger(
   final def infoEvent[A: JsonFormat: TypeTag](event: => A): Unit = logEvent(Level.Info, event)
   final def warnEvent[A: JsonFormat: TypeTag](event: => A): Unit = logEvent(Level.Warn, event)
   final def errorEvent[A: JsonFormat: TypeTag](event: => A): Unit = logEvent(Level.Error, event)
-  def logEvent[A: JsonFormat: TypeTag](level: Level.Value, event: => A): Unit = {
+
+  def logEvent[A: JsonFormat: TypeTag](level: Level.Value, event: => A): Unit =
+    logEventImpl(level, event)(StringTypeTag[A])
+
+  private[sbt] def logEventImpl[A: JsonFormat](level: Level.Value, event: => A)(
+      tag: StringTypeTag[A],
+  ): Unit = {
     val v: A = event
-    val tag = StringTypeTag[A]
     LogExchange.getOrElseUpdateJsonCodec(tag.key, implicitly[JsonFormat[A]])
     // println("logEvent " + tag.key)
     val entry: ObjectEvent[A] = ObjectEvent(level, v, channelName, execId, tag.key)

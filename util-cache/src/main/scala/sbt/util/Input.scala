@@ -1,6 +1,9 @@
 package sbt.util
 
-import java.io.{ Closeable, InputStream }
+import java.io.{ Closeable, File, InputStream }
+
+import jawn.SupportParser
+
 import scala.util.control.NonFatal
 import sjsonnew.{ IsoString, JsonReader, SupportConverter }
 import sbt.io.{ IO, Using }
@@ -36,4 +39,14 @@ class PlainInput[J: IsoString](input: InputStream, converter: SupportConverter[J
   }
 
   def close() = input.close()
+}
+
+class FileInput[J: SupportParser](file: File, converter: SupportConverter[J]) extends Input {
+  val parser: SupportParser[J] = implicitly
+
+  override def read[T: JsonReader](): T = {
+    converter.fromJson(parser.parseFromFile(file).get).get
+  }
+
+  def close() = ()
 }

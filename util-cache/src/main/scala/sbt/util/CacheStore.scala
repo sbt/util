@@ -1,6 +1,8 @@
 package sbt.util
 
 import java.io.{ File, InputStream, OutputStream }
+
+import jawn.SupportParser
 import sbt.io.syntax.fileToRichFile
 import sbt.io.{ IO, Using }
 import sjsonnew.{ IsoString, JsonReader, JsonWriter, SupportConverter }
@@ -18,6 +20,7 @@ abstract class CacheStore extends Input with Output {
 object CacheStore {
   implicit lazy val jvalueIsoString: IsoString[JValue] =
     IsoString.iso(CompactPrinter.apply, Parser.parseUnsafe)
+  implicit lazy val parser: SupportParser[JValue] = Parser
 
   /** Returns file-based CacheStore using standard JSON converter. */
   def apply(cacheFile: File): CacheStore = file(cacheFile)
@@ -42,6 +45,7 @@ abstract class CacheStoreFactory {
 object CacheStoreFactory {
   implicit lazy val jvalueIsoString: IsoString[JValue] =
     IsoString.iso(CompactPrinter.apply, Parser.parseUnsafe)
+  implicit lazy val parser: SupportParser[JValue] = Parser
 
   /** Returns directory-based CacheStoreFactory using standard JSON converter. */
   def apply(base: File): CacheStoreFactory = directory(base)
@@ -51,7 +55,7 @@ object CacheStoreFactory {
 }
 
 /** A factory that creates new stores persisted in `base`. */
-class DirectoryStoreFactory[J: IsoString](base: File, converter: SupportConverter[J])
+class DirectoryStoreFactory[J: IsoString: SupportParser](base: File, converter: SupportConverter[J])
     extends CacheStoreFactory {
   IO.createDirectory(base)
 
@@ -62,11 +66,12 @@ class DirectoryStoreFactory[J: IsoString](base: File, converter: SupportConverte
 }
 
 /** A `CacheStore` that persists information in `file`. */
-class FileBasedStore[J: IsoString](file: File, converter: SupportConverter[J]) extends CacheStore {
+class FileBasedStore[J: IsoString: SupportParser](file: File, converter: SupportConverter[J])
+    extends CacheStore {
   IO.touch(file, setModified = false)
 
   def read[T: JsonReader]() =
-    Using.fileInputStream(file)(stream => new PlainInput(stream, converter).read())
+    new FileInput(file, converter).read()
 
   def write[T: JsonWriter](value: T) =
     Using.fileOutputStream(append = false)(file) { stream =>
